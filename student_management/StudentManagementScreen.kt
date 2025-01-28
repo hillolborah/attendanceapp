@@ -13,23 +13,50 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import androidx.room.Room
+import com.example.attendanceapp.attendance.AttendanceDatabase
+import com.example.attendanceapp.course.CourseEntity
+import com.example.attendanceapp.student.StudentEntity
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.attendanceapp.course.CourseViewModel
+import com.example.attendanceapp.course.CourseViewModelFactory
+import com.example.attendanceapp.student.StudentViewModel
 
 
 // Define the Student data class
-data class Student(val name: String, val enrollmentNumber: String)
+//data class Student(val name: String, val enrollmentNumber: String)
 
 @Composable
-fun StudentManagementScreen(navController: NavHostController) {
-    var courses by remember { mutableStateOf(listOf("CS101", "MATH202", "PHY303")) }
-    var selectedCourse by remember { mutableStateOf(courses.first()) }
-    var students by remember { mutableStateOf(listOf<Student>()) }
+fun StudentManagementScreen(navController: NavHostController, database: AttendanceDatabase) {
+    // Get the CourseViewModel instance
+    val courseViewModel: CourseViewModel = viewModel(
+        factory = CourseViewModelFactory(database.courseDao())
+    )
+
+    // Get StudentViewModel instance
+    val studentViewModel: StudentViewModel = viewModel(
+        factory = StudentViewModel.Factory(database.studentDao())
+    )
+
+    // Observe courses and selectedCourse
+    val courses by courseViewModel.courseList.collectAsState()
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
+
+    // Observe students from StudentViewModel
+    val students by studentViewModel.students.collectAsState()
+
     var showAddStudentDialog by remember { mutableStateOf(false) }
     var showAddCourseDialog by remember { mutableStateOf(false) }
-    var studentToEdit by remember { mutableStateOf<Student?>(null) }
+    var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
     var showEditStudentDialog by remember { mutableStateOf(false) }
+
+
+    // Coroutine scope for async operations
+    val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         // Course Dropdown Row
@@ -39,7 +66,12 @@ fun StudentManagementScreen(navController: NavHostController) {
         ) {
             Text("Course: ", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.width(8.dp))
-            CourseDropdownMenu(courses = courses, selectedCourse = selectedCourse) { selectedCourse = it }
+            CourseDropdownMenu(courseViewModel = courseViewModel, studentViewModel = studentViewModel) { course ->
+                // Update selected course in CourseViewModel
+                courseViewModel.fetchCourseByCode(course.courseCode)
+                // Fetch students for the selected course
+                studentViewModel.fetchStudents(course.courseCode)
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -90,7 +122,7 @@ fun StudentManagementScreen(navController: NavHostController) {
 
                         // Delete Button
                         IconButton(onClick = {
-                            students = students.filterNot { it == student }
+                            studentViewModel.deleteStudent(student.enrollmentNumber, student.courseCode)
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete")
                         }
@@ -100,52 +132,67 @@ fun StudentManagementScreen(navController: NavHostController) {
         }
     }
 
+
     // Add Student Dialog
     if (showAddStudentDialog) {
         AddStudentDialog(
-            onDismiss = { showAddStudentDialog = false },
-            onAddStudent = { name, enrollmentNumber ->
-                students = students + Student(name, enrollmentNumber)
-                showAddStudentDialog = false
-            }
+            courseViewModel = courseViewModel,
+            studentViewModel = studentViewModel,
+            onDismiss = { showAddStudentDialog = false }
         )
     }
 
-    // Edit Student Dialog
+
+
+// Edit Student Dialog
     if (showEditStudentDialog && studentToEdit != null) {
         EditStudentDialog(
+            courseViewModel = courseViewModel,  // Pass the courseViewModel here
             student = studentToEdit!!,
             onDismiss = { showEditStudentDialog = false },
             onUpdateStudent = { updatedStudent ->
-                students = students.map {
-                    if (it == studentToEdit) updatedStudent else it
-                }
+                studentViewModel.updateStudent(updatedStudent)
                 showEditStudentDialog = false
             }
         )
     }
 
-    // Add Course Dialog
+
+// Add Course Dialog
     if (showAddCourseDialog) {
         AddCourseDialog(
+            courseViewModel = courseViewModel, // Pass the ViewModel here
             onDismiss = { showAddCourseDialog = false },
-            onAddCourse = { courseName ->
-                if (courseName.isNotBlank()) {
-                    courses = courses + courseName // Add the new course to the list
+            onAddCourse = { courseEntity ->
+                if (courseEntity.courseCode.isNotBlank()) {
+                    // Add the new CourseEntity to the list via ViewModel
+                    courseViewModel.addOrUpdateCourse(courseEntity)
                 }
                 showAddCourseDialog = false
             }
         )
     }
+
 }
 
 @Composable
-fun CourseDropdownMenu(courses: List<String>, selectedCourse: String, onCourseSelected: (String) -> Unit) {
+fun CourseDropdownMenu(courseViewModel: CourseViewModel, studentViewModel: StudentViewModel, onCourseSelected: (CourseEntity) -> Unit) {
+    // Observe the courses and selectedCourse from CourseViewModel
+    val courses by courseViewModel.courseList.collectAsState()
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
+
     var expanded by remember { mutableStateOf(false) }
+
+    // Observe the students related to the selected course
+    LaunchedEffect(selectedCourse) {
+        selectedCourse?.courseCode?.let {
+            studentViewModel.fetchStudents(it) // Fetch students when course is selected
+        }
+    }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Selected Course: $selectedCourse",
+            text = "Selected Course: ${selectedCourse?.courseCode ?: "None"}",
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { expanded = !expanded }
@@ -158,9 +205,10 @@ fun CourseDropdownMenu(courses: List<String>, selectedCourse: String, onCourseSe
         ) {
             courses.forEach { course ->
                 DropdownMenuItem(
-                    text = { Text(course) },
+                    text = { Text(course.courseCode) },
                     onClick = {
-                        onCourseSelected(course)
+                        courseViewModel.selectCourse(course) // Update selected course in ViewModel
+                        onCourseSelected(course) // Notify the parent about the selected course
                         expanded = false
                     }
                 )
@@ -169,10 +217,19 @@ fun CourseDropdownMenu(courses: List<String>, selectedCourse: String, onCourseSe
     }
 }
 
+
 @Composable
-fun AddStudentDialog(onDismiss: () -> Unit, onAddStudent: (String, String) -> Unit) {
+fun AddStudentDialog(
+    courseViewModel: CourseViewModel,
+    studentViewModel: StudentViewModel,
+    onDismiss: () -> Unit
+) {
+    // Local states for the student details
     var name by remember { mutableStateOf("") }
     var enrollmentNumber by remember { mutableStateOf("") }
+
+    // Observe selectedCourse from CourseViewModel
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -184,6 +241,8 @@ fun AddStudentDialog(onDismiss: () -> Unit, onAddStudent: (String, String) -> Un
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Add Student", style = MaterialTheme.typography.headlineSmall)
+
+                // Input fields for name and enrollment number
                 BasicTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -214,23 +273,49 @@ fun AddStudentDialog(onDismiss: () -> Unit, onAddStudent: (String, String) -> Un
                         }
                     }
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
+
+                // Action buttons
                 Row(
                     horizontalArrangement = Arrangement.End,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    // Cancel Button
                     TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = {
-                        onAddStudent(name, enrollmentNumber)
-                    }) { Text("Add") }
+
+                    // Add Button
+                    TextButton(
+                        onClick = {
+                            selectedCourse?.courseCode?.let { courseCode ->
+                                val student = StudentEntity(
+                                    enrollmentNumber = enrollmentNumber,
+                                    name = name,
+                                    courseCode = courseCode
+                                )
+                                studentViewModel.addStudent(student)
+                                onDismiss() // Close the dialog after adding
+                            }
+                        },
+                        enabled = selectedCourse != null && name.isNotEmpty() && enrollmentNumber.isNotEmpty()
+                    ) {
+                        Text("Add")
+                    }
+
                 }
             }
         }
     }
 }
 
+
 @Composable
-fun EditStudentDialog(student: Student, onDismiss: () -> Unit, onUpdateStudent: (Student) -> Unit) {
+fun EditStudentDialog(
+    student: StudentEntity,
+    courseViewModel: CourseViewModel, // Add courseViewModel parameter here
+    onDismiss: () -> Unit,
+    onUpdateStudent: (StudentEntity) -> Unit
+) {
     var name by remember { mutableStateOf(student.name) }
     var enrollmentNumber by remember { mutableStateOf(student.enrollmentNumber) }
 
@@ -281,7 +366,8 @@ fun EditStudentDialog(student: Student, onDismiss: () -> Unit, onUpdateStudent: 
                 ) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     TextButton(onClick = {
-                        onUpdateStudent(Student(name, enrollmentNumber))
+                        val updatedStudent = student.copy(name = name, enrollmentNumber = enrollmentNumber)
+                        onUpdateStudent(updatedStudent)
                     }) { Text("Update") }
                 }
             }
@@ -289,8 +375,13 @@ fun EditStudentDialog(student: Student, onDismiss: () -> Unit, onUpdateStudent: 
     }
 }
 
+
 @Composable
-fun AddCourseDialog(onDismiss: () -> Unit, onAddCourse: (String) -> Unit) {
+fun AddCourseDialog(
+    courseViewModel: CourseViewModel, // Accept the ViewModel
+    onDismiss: () -> Unit, // Function to dismiss the dialog
+    onAddCourse: (CourseEntity) -> Unit // Function to handle adding the course
+) {
     var courseName by remember { mutableStateOf("") }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -327,7 +418,9 @@ fun AddCourseDialog(onDismiss: () -> Unit, onAddCourse: (String) -> Unit) {
                 ) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     TextButton(onClick = {
-                        onAddCourse(courseName)
+                        val newCourse = CourseEntity(courseCode = courseName)
+                        courseViewModel.addOrUpdateCourse(newCourse)  // Add the course using ViewModel
+                        onDismiss()  // Close the dialog
                     }) { Text("Add") }
                 }
             }
@@ -335,8 +428,25 @@ fun AddCourseDialog(onDismiss: () -> Unit, onAddCourse: (String) -> Unit) {
     }
 }
 
+
 @Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {
-    StudentManagementScreen(navController = rememberNavController())
+    val navController = rememberNavController()
+
+    // Create an in-memory database for preview
+    val context = LocalContext.current
+    val database = Room.inMemoryDatabaseBuilder(
+        context,
+        AttendanceDatabase::class.java
+    ).build()
+
+    // Pass only the database and NavController to the composable
+    StudentManagementScreen(
+        navController = navController,
+        database = database
+    )
 }
+
+
+

@@ -27,9 +27,6 @@ import com.example.attendanceapp.course.CourseViewModelFactory
 import com.example.attendanceapp.student.StudentViewModel
 
 
-// Define the Student data class
-//data class Student(val name: String, val enrollmentNumber: String)
-
 @Composable
 fun StudentManagementScreen(navController: NavHostController, database: AttendanceDatabase) {
     // Get the CourseViewModel instance
@@ -43,11 +40,12 @@ fun StudentManagementScreen(navController: NavHostController, database: Attendan
     )
 
     // Observe courses and selectedCourse
-    val courses by courseViewModel.courseList.collectAsState()
-    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
+    val courses by courseViewModel.courseList.collectAsState(initial = emptyList()) // Initial empty list for courses
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState(initial = null) // Initial null for selectedCourse
+
 
     // Observe students from StudentViewModel
-    val students by studentViewModel.students.collectAsState()
+    val students by studentViewModel.getStudentsByCourse(selectedCourse?.courseCode ?: "").collectAsState(initial = emptyList())
 
     var showAddStudentDialog by remember { mutableStateOf(false) }
     var showAddCourseDialog by remember { mutableStateOf(false) }
@@ -69,8 +67,6 @@ fun StudentManagementScreen(navController: NavHostController, database: Attendan
             CourseDropdownMenu(courseViewModel = courseViewModel, studentViewModel = studentViewModel) { course ->
                 // Update selected course in CourseViewModel
                 courseViewModel.fetchCourseByCode(course.courseCode)
-                // Fetch students for the selected course
-                studentViewModel.fetchStudents(course.courseCode)
             }
         }
 
@@ -147,7 +143,6 @@ fun StudentManagementScreen(navController: NavHostController, database: Attendan
 // Edit Student Dialog
     if (showEditStudentDialog && studentToEdit != null) {
         EditStudentDialog(
-            courseViewModel = courseViewModel,  // Pass the courseViewModel here
             student = studentToEdit!!,
             onDismiss = { showEditStudentDialog = false },
             onUpdateStudent = { updatedStudent ->
@@ -178,15 +173,17 @@ fun StudentManagementScreen(navController: NavHostController, database: Attendan
 @Composable
 fun CourseDropdownMenu(courseViewModel: CourseViewModel, studentViewModel: StudentViewModel, onCourseSelected: (CourseEntity) -> Unit) {
     // Observe the courses and selectedCourse from CourseViewModel
-    val courses by courseViewModel.courseList.collectAsState()
-    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
+    val courses by courseViewModel.courseList.collectAsState(initial = emptyList())
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState(initial = null)
+
 
     var expanded by remember { mutableStateOf(false) }
 
     // Observe the students related to the selected course
     LaunchedEffect(selectedCourse) {
-        selectedCourse?.courseCode?.let {
-            studentViewModel.fetchStudents(it) // Fetch students when course is selected
+        selectedCourse?.courseCode?.let { courseCode ->
+            // Instead of fetchStudents, use getStudentsByCourse
+            studentViewModel.getStudentsByCourse(courseCode)
         }
     }
 
@@ -308,16 +305,13 @@ fun AddStudentDialog(
     }
 }
 
-
 @Composable
 fun EditStudentDialog(
     student: StudentEntity,
-    courseViewModel: CourseViewModel, // Add courseViewModel parameter here
     onDismiss: () -> Unit,
     onUpdateStudent: (StudentEntity) -> Unit
 ) {
     var name by remember { mutableStateOf(student.name) }
-    var enrollmentNumber by remember { mutableStateOf(student.enrollmentNumber) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -329,6 +323,8 @@ fun EditStudentDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Edit Student", style = MaterialTheme.typography.headlineSmall)
+
+                // Name Field (Editable)
                 BasicTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -344,36 +340,36 @@ fun EditStudentDialog(
                         }
                     }
                 )
-                BasicTextField(
-                    value = enrollmentNumber,
-                    onValueChange = { enrollmentNumber = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    decorationBox = { innerTextField ->
-                        Box(
-                            Modifier
-                                .padding(4.dp)
-                                .fillMaxWidth()
-                        ) {
-                            if (enrollmentNumber.isEmpty()) Text("Enter enrollment number", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            innerTextField()
-                        }
-                    }
+
+                // Enrollment Number Field (Disabled)
+                Text(
+                    text = "Enrollment Number: ${student.enrollmentNumber}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
+
                 Row(
                     horizontalArrangement = Arrangement.End,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = {
-                        val updatedStudent = student.copy(name = name, enrollmentNumber = enrollmentNumber)
-                        onUpdateStudent(updatedStudent)
-                    }) { Text("Update") }
+
+                    // Update Button (Only updates name)
+                    TextButton(
+                        onClick = {
+                            val updatedStudent = student.copy(name = name)
+                            onUpdateStudent(updatedStudent)
+                        },
+                        enabled = name.isNotEmpty()
+                    ) { Text("Update") }
                 }
             }
         }
     }
 }
+
 
 
 @Composable

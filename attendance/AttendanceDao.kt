@@ -24,9 +24,10 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE courseCode = :courseCode")
     suspend fun getAllAttendanceForCourse(courseCode: String): List<AttendanceEntity>
 
-    // Get all attendance records for a specific student
-    @Query("SELECT * FROM attendance WHERE enrollmentNumber = :enrollmentNumber")
-    suspend fun getAttendanceByStudent(enrollmentNumber: String): List<AttendanceEntity>
+//    // Get all attendance records for a specific student in a specific course
+//    @Query("SELECT * FROM attendance WHERE enrollmentNumber = :enrollmentNumber AND courseCode = :courseCode")
+//    suspend fun getAttendanceByStudent(enrollmentNumber: String, courseCode: String): List<AttendanceEntity>
+
 
     // Get attendance for a specific student in a course
     @Query("SELECT * FROM attendance WHERE courseCode = :courseCode AND enrollmentNumber = :enrollmentNumber")
@@ -48,9 +49,9 @@ interface AttendanceDao {
     @Query("DELETE FROM attendance WHERE courseCode = :courseCode")
     suspend fun deleteAttendanceByCourse(courseCode: String)
 
-    // Delete all attendance records for a specific student
-    @Query("DELETE FROM attendance WHERE enrollmentNumber = :enrollmentNumber")
-    suspend fun deleteAttendanceByStudent(enrollmentNumber: String)
+    @Query("DELETE FROM attendance WHERE enrollmentNumber = :enrollmentNumber AND courseCode = :courseCode")
+    suspend fun deleteAttendanceByStudent(enrollmentNumber: String, courseCode: String)
+
 
     // Delete a specific attendance record
     @Query("DELETE FROM attendance WHERE courseCode = :courseCode AND date = :date AND enrollmentNumber = :enrollmentNumber")

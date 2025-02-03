@@ -19,9 +19,7 @@ import com.example.attendanceapp.course.CourseEntity
 import com.example.attendanceapp.course.CourseViewModel
 import com.example.attendanceapp.course.CourseViewModelFactory
 
-//import android.content.Context
 import android.widget.Toast
-//import androidx.compose.ui.platform.LocalContext
 
 
 
@@ -35,7 +33,7 @@ fun DataExportScreen(
     val attendanceViewModel: AttendanceViewModel = viewModel(factory = AttendanceViewModelFactory(database.attendanceDao()))
 
     // Collect the list of courses from CourseViewModel
-    val courses by courseViewModel.courseList.collectAsState()
+    val courses by courseViewModel.courseList.collectAsState(initial = emptyList())
 
     // Local state for UI management
     var selectedCourse by remember { mutableStateOf<CourseEntity?>(null) }
@@ -67,45 +65,39 @@ fun DataExportScreen(
         CourseDropdown(courses = courses, selectedCourse = selectedCourse) { course ->
             selectedCourse = course
             course.let {
-                attendanceViewModel.getAllAttendanceForCourse(it.courseCode) { data ->
-                    // Map AttendanceEntity to Map<String, Any>
-                    attendanceData = data.map { record ->
-                        mapOf(
-                            "courseCode" to record.courseCode,
-                            "date" to record.date,
-                            "enrollmentNumber" to record.enrollmentNumber,
-                            "status" to record.status
-                        )
-                    }
-                }
+                attendanceViewModel.fetchAllAttendanceForCourse(it.courseCode) // ✅ Correct function call
             }
         }
 
+// Observe attendance list from ViewModel
+        val attendanceData by attendanceViewModel.attendanceList.collectAsState(initial = emptyList())
 
+// Map AttendanceEntity to a list of maps
+        val attendanceRecords = attendanceData.map { record ->
+            mapOf(
+                "courseCode" to record.courseCode,
+                "date" to record.date,
+                "enrollmentNumber" to record.enrollmentNumber,
+                "status" to record.status
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Get context using LocalContext.current
         val context = LocalContext.current
 
-        // Export button
+// Observe the export status from the ViewModel
+        val exportStatus by attendanceViewModel.exportStatus.collectAsState()
+
+// Export button
         Button(
             onClick = {
-                if (selectedCourse != null) {
+                selectedCourse?.let {
                     // Call export function from AttendanceViewModel
                     attendanceViewModel.exportAttendanceDataToCSV(
                         context = context,
-                        courseCode = selectedCourse!!.courseCode,
-                        onSuccess = { filePath ->
-                            Toast.makeText(
-                                context,
-                                "Attendance exported successfully to $filePath",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        },
-                        onFailure = { errorMessage ->
-                            Toast.makeText(context, "Export failed: $errorMessage", Toast.LENGTH_LONG).show()
-                        }
+                        courseCode = it.courseCode
                     )
                 }
             },
@@ -113,6 +105,17 @@ fun DataExportScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Export as CSV")
+        }
+
+// Show a Toast based on export status
+        LaunchedEffect(exportStatus) {
+            exportStatus?.let { status ->
+                Toast.makeText(
+                    context,
+                    status,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
 
 
@@ -125,7 +128,7 @@ fun DataExportScreen(
             )
         }
 
-        // Debugging: Display attendance data (optional)
+        // Debugging: Display attendance data
         if (attendanceData.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Text("Fetched Attendance Data:")

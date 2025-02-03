@@ -11,13 +11,9 @@ interface CourseDao {
 
     @Query("SELECT * FROM courses")
     fun getAllCourses(): List<CourseEntity>  // Correct return type
-//    fun getAllCourses(): List<CourseEntity>  // Return type should be List<CourseEntity>
-//
+
     @Update
     suspend fun updateCourse(course: CourseEntity)
-
-//    @Delete
-//    suspend fun deleteCourse(course: CourseEntity)
 
     @Query("SELECT * FROM courses WHERE courseCode = :courseCode LIMIT 1")
     @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH)

@@ -12,8 +12,8 @@ import com.example.attendanceapp.student.StudentEntity
     foreignKeys = [
         ForeignKey(
             entity = StudentEntity::class,
-            parentColumns = ["enrollmentNumber"],
-            childColumns = ["enrollmentNumber"],
+            parentColumns = ["enrollmentNumber", "courseCode"], // Updated to match composite key
+            childColumns = ["enrollmentNumber", "courseCode"],
             onDelete = ForeignKey.CASCADE
         ),
         ForeignKey(
@@ -24,8 +24,9 @@ import com.example.attendanceapp.student.StudentEntity
         )
     ],
     indices = [
-        Index(value = ["enrollmentNumber"]), // Speeds up queries involving enrollmentNumber
-        Index(value = ["courseCode"]) // Speeds up queries involving courseCode
+        Index(value = ["enrollmentNumber", "courseCode"]), // Composite index for better performance
+        Index(value = ["courseCode"]),
+        Index(value = ["date"]) // If querying attendance by date
     ]
 )
 data class AttendanceEntity(
@@ -33,5 +34,6 @@ data class AttendanceEntity(
     val enrollmentNumber: String, // Foreign key to StudentEntity
     val courseCode: String, // Foreign key to CourseEntity
     val date: String, // Date of attendance in ISO format (e.g., "2025-01-27")
-    val status: String // Attendance status (e.g., "P" for Present, "A" for Absent)
+    val status: String // Attendance status (e.g., "P" for Present, "A" for Absent")
 )
+

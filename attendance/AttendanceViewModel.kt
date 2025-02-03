@@ -5,17 +5,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.attendanceapp.utils.CSVExportHelper
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AttendanceViewModel(private val attendanceDao: AttendanceDao) : ViewModel() {
 
+    private val _attendanceList = MutableStateFlow<List<AttendanceEntity>>(emptyList())
+    val attendanceList: StateFlow<List<AttendanceEntity>> = _attendanceList.asStateFlow()
+
+    private val _exportStatus = MutableStateFlow<String?>(null)
+    val exportStatus: StateFlow<String?> = _exportStatus.asStateFlow()
+
     // Function to insert or update an attendance record
-    fun markAttendance(
-        courseCode: String,
-        date: String,
-        enrollmentNumber: String,
-        status: String
-    ) {
+    fun markAttendance(courseCode: String, date: String, enrollmentNumber: String, status: String) {
         viewModelScope.launch {
             val attendance = AttendanceEntity(
                 courseCode = courseCode,
@@ -24,69 +28,41 @@ class AttendanceViewModel(private val attendanceDao: AttendanceDao) : ViewModel(
                 status = status
             )
             attendanceDao.insertAttendance(attendance)
+            // Refresh the data after insertion
+            fetchAttendanceByCourseAndDate(courseCode, date)
         }
     }
 
     // Function to fetch attendance for a specific course and date
-    fun getAttendanceByCourseAndDate(
-        courseCode: String,
-        date: String,
-        onResult: (List<AttendanceEntity>) -> Unit
-    ) {
+    fun fetchAttendanceByCourseAndDate(courseCode: String, date: String) {
         viewModelScope.launch {
-            val attendanceList = attendanceDao.getAttendanceByCourseAndDate(courseCode, date)
-            onResult(attendanceList)
+            _attendanceList.value = attendanceDao.getAttendanceByCourseAndDate(courseCode, date)
         }
     }
 
     // Function to fetch all attendance records for a specific course
-    fun getAllAttendanceForCourse(
-        courseCode: String,
-        onResult: (List<AttendanceEntity>) -> Unit
-    ) {
+    fun fetchAllAttendanceForCourse(courseCode: String) {
         viewModelScope.launch {
-            val attendanceList = attendanceDao.getAllAttendanceForCourse(courseCode)
-            onResult(attendanceList)
+            _attendanceList.value = attendanceDao.getAllAttendanceForCourse(courseCode)
         }
     }
 
-    // Function to fetch attendance for a specific student
-    fun getAttendanceByStudent(
-        enrollmentNumber: String,
-        onResult: (List<AttendanceEntity>) -> Unit
-    ) {
-        viewModelScope.launch {
-            val attendanceList = attendanceDao.getAttendanceByStudent(enrollmentNumber)
-            onResult(attendanceList)
-        }
-    }
+//    // Function to fetch attendance for a specific student
+//    fun fetchAttendanceByStudent(enrollmentNumber: String, courseCode: String) {
+//        viewModelScope.launch {
+//            _attendanceList.value = attendanceDao.getAttendanceForStudentInCourse(courseCode, enrollmentNumber)
+//        }
+//    }
 
-    // Function to fetch attendance for a specific student in a course
-    fun getAttendanceForStudentInCourse(
-        courseCode: String,
-        enrollmentNumber: String,
-        onResult: (List<AttendanceEntity>) -> Unit
-    ) {
-        viewModelScope.launch {
-            val attendanceList =
-                attendanceDao.getAttendanceForStudentInCourse(courseCode, enrollmentNumber)
-            onResult(attendanceList)
-        }
-    }
+
 
     // Function to export attendance data to CSV
-    fun exportAttendanceDataToCSV(
-        context: Context,
-        courseCode: String,
-        onSuccess: (String) -> Unit,
-        onFailure: (String) -> Unit
-    ) {
+    fun exportAttendanceDataToCSV(context: Context, courseCode: String) {
         viewModelScope.launch {
             try {
                 val attendanceList = attendanceDao.getAllAttendanceForCourse(courseCode)
 
                 if (attendanceList.isNotEmpty()) {
-                    // Extract headers and data
                     val headers = listOf("Course Code", "Date", "Enrollment Number", "Status")
                     val rows = attendanceList.map { record ->
                         listOf(
@@ -97,7 +73,6 @@ class AttendanceViewModel(private val attendanceDao: AttendanceDao) : ViewModel(
                         )
                     }
 
-                    // Use CSVExportHelper to export the data
                     val filePath = CSVExportHelper.exportAttendanceToCSV(
                         context = context,
                         fileName = "Attendance_${courseCode}",
@@ -105,19 +80,18 @@ class AttendanceViewModel(private val attendanceDao: AttendanceDao) : ViewModel(
                         data = rows
                     )
 
-                    onSuccess(filePath)
+                    _exportStatus.value = filePath
                 } else {
-                    onFailure("No attendance data available for export.")
+                    _exportStatus.value = "No attendance data available for export."
                 }
             } catch (e: Exception) {
-                onFailure("Failed to export data: ${e.message}")
+                _exportStatus.value = "Failed to export data: ${e.message}"
             }
         }
     }
 }
 
-class AttendanceViewModelFactory(private val attendanceDao: AttendanceDao) :
-    ViewModelProvider.Factory {
+class AttendanceViewModelFactory(private val attendanceDao: AttendanceDao) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AttendanceViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
@@ -126,3 +100,4 @@ class AttendanceViewModelFactory(private val attendanceDao: AttendanceDao) :
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+

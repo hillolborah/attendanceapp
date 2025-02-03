@@ -69,11 +69,6 @@ fun MainApp(navController: NavHostController, database: AttendanceDatabase) {
         ) {
             composable("student_management") { StudentManagementScreen(navController, database) }
             composable("attendance_start") { AttendanceStartScreen(navController, database) }
-//            composable("attendance/{course}/{date}") { backStackEntry ->
-//                val course = backStackEntry.arguments?.getString("course") ?: ""
-//                val date = backStackEntry.arguments?.getString("date") ?: ""
-//                AttendanceScreen(navController, course, date, database)
-//            }
             composable("attendance/{course}/{date}") { backStackEntry ->
                 val courseCode = backStackEntry.arguments?.getString("course") ?: ""
                 val date = backStackEntry.arguments?.getString("date") ?: ""

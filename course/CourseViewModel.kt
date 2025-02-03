@@ -3,70 +3,44 @@ package com.example.attendanceapp.course
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CourseViewModel(private val courseDao: CourseDao) : ViewModel() {
 
-    // StateFlow to observe course list changes
-    private val _courseList = MutableStateFlow<List<CourseEntity>>(emptyList())
-    val courseList: StateFlow<List<CourseEntity>> = _courseList
+    // Flow-based real-time updates for courses
+    val courseList: Flow<List<CourseEntity>> = courseDao.getAllCoursesAsFlow()
 
-    // StateFlow for a single course (used when fetching details)
+    // StateFlow for a single selected course
     private val _selectedCourse = MutableStateFlow<CourseEntity?>(null)
-    val selectedCourse: StateFlow<CourseEntity?> = _selectedCourse
+    val selectedCourse: StateFlow<CourseEntity?> = _selectedCourse.asStateFlow()
 
-    // Fetch courses
-    private fun fetchCourses() {
-        viewModelScope.launch {
-            _courseList.value = courseDao.getAllCourses()
-        }
-    }
-
-    // Select a course (update selected course)
+    // Select a course
     fun selectCourse(course: CourseEntity) {
         _selectedCourse.value = course
     }
 
-    init {
-        // Automatically fetch all courses when the ViewModel is created
-        fetchAllCourses()
-    }
-
     // Insert or update a course
     fun addOrUpdateCourse(course: CourseEntity) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {  // Ensure DB operation runs on IO thread
             courseDao.insertCourse(course)
-            fetchCourses() // Refresh the course list
         }
     }
 
-//    // Delete a course
-//    fun deleteCourse(course: CourseEntity) {
-//        viewModelScope.launch {
-//            courseDao.deleteCourse(course)
-//            fetchCourses() // Refresh the course list
-//        }
-//    }
-
-    // Fetch all courses
-    private fun fetchAllCourses() {
-        viewModelScope.launch {
-            _courseList.value = courseDao.getAllCourses()
-        }
-    }
-
-    // Fetch a course by its code
     fun fetchCourseByCode(courseCode: String) {
-        viewModelScope.launch {
-            _selectedCourse.value = courseDao.getCourseByCode(courseCode)
+        viewModelScope.launch(Dispatchers.IO) {
+            val course = courseDao.getCourseByCode(courseCode)
+            withContext(Dispatchers.Main) {
+                _selectedCourse.value = course
+            }
         }
     }
 
-    // Flow-based real-time updates for courses
-    val allCoursesFlow: Flow<List<CourseEntity>> = courseDao.getAllCoursesAsFlow()
 }
 
 // Factory for creating CourseViewModel instances
@@ -79,3 +53,4 @@ class CourseViewModelFactory(private val courseDao: CourseDao) : ViewModelProvid
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+

@@ -26,7 +26,6 @@ import com.example.attendanceapp.student.StudentViewModel
 @Composable
 fun AttendanceStartScreen(navController: NavHostController, database: AttendanceDatabase) {
     var selectedDate by remember { mutableStateOf(getCurrentDate()) }
-    var selectedCourse by remember { mutableStateOf<CourseEntity?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // Initialize CourseViewModel
@@ -34,21 +33,17 @@ fun AttendanceStartScreen(navController: NavHostController, database: Attendance
     val courseViewModel: CourseViewModel = viewModel(factory = CourseViewModelFactory(courseDao))
 
     // Observe course list from the ViewModel
-    val courseList by courseViewModel.courseList.collectAsState()
+    val courseList by courseViewModel.courseList.collectAsState(initial = emptyList())
+
+    // Observe selected course from CourseViewModel
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
 
     // Initialize StudentViewModel
     val studentDao = database.studentDao()
     val studentViewModel: StudentViewModel = viewModel(factory = StudentViewModel.Factory(studentDao))
 
-    // Fetch students for the selected course
-    LaunchedEffect(selectedCourse?.courseCode) {
-        selectedCourse?.courseCode?.let { courseCode ->
-            studentViewModel.fetchStudents(courseCode)
-        }
-    }
-
-    // Observe students from the ViewModel
-    val students by studentViewModel.students.collectAsState()
+    val students by studentViewModel.getStudentsByCourse(selectedCourse?.courseCode ?: "")
+        .collectAsState(initial = emptyList())
 
     Column(
         modifier = Modifier
@@ -72,7 +67,13 @@ fun AttendanceStartScreen(navController: NavHostController, database: Attendance
 
         // Course Dropdown
         Text(text = "Select Course/Class")
-        DropdownMenuExample(courseList, selectedCourse) { selectedCourse = it }
+        DropdownMenuExample(
+            courseList = courseList,
+            selectedCourse = selectedCourse,
+            onCourseSelected = { course ->
+                courseViewModel.selectCourse(course)  // Update CourseViewModel
+            }
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -87,7 +88,7 @@ fun AttendanceStartScreen(navController: NavHostController, database: Attendance
                         // Show error: "Please select a date"
                     }
                     else -> {
-                        navController.navigate("attendance/${selectedCourse?.courseCode}/$selectedDate")
+                        navController.navigate("attendance/${selectedCourse!!.courseCode}/$selectedDate")
                     }
                 }
             }
@@ -107,6 +108,7 @@ fun AttendanceStartScreen(navController: NavHostController, database: Attendance
         )
     }
 }
+
 
 
 @Composable
@@ -226,7 +228,7 @@ fun getCurrentDate(): String {
 fun AttendanceStartScreenPreview() {
     val navController = rememberNavController()
 
-    // Use a real context-based database in the preview if needed
+    // Use a real context-based database in the preview
     val context = LocalContext.current
     val database = Room.databaseBuilder(
         context,

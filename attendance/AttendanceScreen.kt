@@ -21,146 +21,6 @@ import com.example.attendanceapp.course.CourseViewModelFactory
 import com.example.attendanceapp.student.StudentEntity
 import com.example.attendanceapp.student.StudentViewModel
 
-//
-//@Composable
-//fun AttendanceScreen(navController: NavHostController, course: CourseEntity, date: String, database: AttendanceDatabase) {
-//    // Initialize CourseViewModel
-//    val courseDao = database.courseDao()
-//    val courseViewModel: CourseViewModel = viewModel(factory = CourseViewModelFactory(courseDao))
-//
-//    // Observe the selected course from the ViewModel
-//    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
-//
-//    // Initialize AttendanceViewModel
-//    val attendanceDao = database.attendanceDao()
-//    val attendanceViewModel: AttendanceViewModel = viewModel(factory = AttendanceViewModelFactory(attendanceDao))
-//
-//    // Fetch students for the selected course
-//    val studentDao = database.studentDao()
-//    val studentViewModel: StudentViewModel = viewModel(factory = StudentViewModel.Factory(studentDao))
-//
-//    // Fetch students for the selected course
-////    LaunchedEffect(selectedCourse?.courseCode) {
-////        selectedCourse?.courseCode?.let {
-////            studentViewModel.fetchStudents(it)
-////        }
-////    }
-//    val studentList by studentViewModel.getStudentsByCourse(selectedCourse?.courseCode ?: "")
-//        .collectAsState(initial = emptyList())
-//
-//
-//    // Observe the list of students
-////    val studentList by studentViewModel.students.collectAsState()
-//
-//    // Initialize a map to track attendance status for each student
-//    val attendanceMap = remember { mutableStateMapOf<String, Boolean?>() }
-//
-//    Column(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .padding(16.dp)
-//    ) {
-//        Text(text = "Course: ${selectedCourse?.courseCode}", style = MaterialTheme.typography.titleLarge)
-//        Text(text = "Date: $date", style = MaterialTheme.typography.titleMedium)
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        LazyColumn(modifier = Modifier.weight(1f)) {
-//            items(studentList) { student ->
-//                AttendanceRow(
-//                    student = student,
-//                    isPresent = attendanceMap[student.enrollmentNumber],
-//                    onAttendanceChange = { isPresent ->
-//                        // Update attendance in the ViewModel
-//                        attendanceMap[student.enrollmentNumber] = isPresent
-//                        attendanceViewModel.markAttendance(
-//                            courseCode = selectedCourse?.courseCode ?: "",
-//                            date = date,
-//                            enrollmentNumber = student.enrollmentNumber,
-//                            status = if (isPresent) "P" else "A"
-//                        )
-//                    }
-//                )
-//            }
-//        }
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        Button(
-//            onClick = {
-//                navController.popBackStack()
-//            },
-//            modifier = Modifier.fillMaxWidth()
-//        ) {
-//            Text("Save Attendance")
-//        }
-//    }
-//}
-
-//@Composable
-//fun AttendanceScreen(
-//    navController: NavHostController,
-//    course: CourseEntity,  // Use the passed course directly
-//    date: String,
-//    database: AttendanceDatabase
-//) {
-//    // Initialize AttendanceViewModel
-//    val attendanceDao = database.attendanceDao()
-//    val attendanceViewModel: AttendanceViewModel = viewModel(factory = AttendanceViewModelFactory(attendanceDao))
-//
-//    // Initialize StudentViewModel
-//    val studentDao = database.studentDao()
-//    val studentViewModel: StudentViewModel = viewModel(factory = StudentViewModel.Factory(studentDao))
-//
-//    // Fetch students for the selected course
-//    val studentList by studentViewModel.getStudentsByCourse(course.courseCode)
-//        .collectAsState(initial = emptyList())
-//
-//    // Initialize a map to track attendance status for each student
-//    val attendanceMap = remember { mutableStateMapOf<String, Boolean?>() }
-//
-//    Column(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .padding(16.dp)
-//    ) {
-//        Text(text = "Course: ${course.courseCode}", style = MaterialTheme.typography.titleLarge)
-//        Text(text = "Date: $date", style = MaterialTheme.typography.titleMedium)
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        LazyColumn(modifier = Modifier.weight(1f)) {
-//            items(studentList) { student ->
-//                AttendanceRow(
-//                    student = student,
-//                    isPresent = attendanceMap[student.enrollmentNumber],
-//                    onAttendanceChange = { isPresent ->
-//                        // Update attendance in the ViewModel
-//                        attendanceMap[student.enrollmentNumber] = isPresent
-//                        attendanceViewModel.markAttendance(
-//                            courseCode = course.courseCode,
-//                            date = date,
-//                            enrollmentNumber = student.enrollmentNumber,
-//                            status = if (isPresent) "P" else "A"
-//                        )
-//                    }
-//                )
-//            }
-//        }
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        Button(
-//            onClick = {
-//                navController.popBackStack()
-//            },
-//            modifier = Modifier.fillMaxWidth()
-//        ) {
-//            Text("Save Attendance")
-//        }
-//    }
-//}
-
 @Composable
 fun AttendanceScreen(
     navController: NavHostController,
@@ -248,7 +108,7 @@ fun AttendanceRow(student: StudentEntity, isPresent: Boolean?, onAttendanceChang
                     containerColor = if (isPresent == true) Color.Green else MaterialTheme.colorScheme.surface
                 )
             ) {
-                Text("Present", color = Color.Black)
+                Text("Present", color = Color.White)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Button(
@@ -260,7 +120,7 @@ fun AttendanceRow(student: StudentEntity, isPresent: Boolean?, onAttendanceChang
                     containerColor = if (isPresent == false) Color.Red else MaterialTheme.colorScheme.surface
                 )
             ) {
-                Text("Absent", color = Color.Black)
+                Text("Absent", color = Color.White)
             }
         }
     }

@@ -6,21 +6,53 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+<<<<<<< HEAD
+=======
+import androidx.lifecycle.viewmodel.compose.viewModel
+>>>>>>> 458a36df1ffa1c6dee25f19376a61edf63d819a1
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import androidx.room.Room
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.attendanceapp.course.CourseEntity
+import com.example.attendanceapp.course.CourseViewModel
+import com.example.attendanceapp.course.CourseViewModelFactory
+import com.example.attendanceapp.student.StudentViewModel
+
 
 @Composable
-fun AttendanceStartScreen(navController: NavHostController) {
+fun AttendanceStartScreen(navController: NavHostController, database: AttendanceDatabase) {
     var selectedDate by remember { mutableStateOf(getCurrentDate()) }
+<<<<<<< HEAD
     var selectedCourse by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     val courseList = listOf("Mathematics", "Physics", "Computer Science", "English") // Example courses
+=======
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    // Initialize CourseViewModel
+    val courseDao = database.courseDao()
+    val courseViewModel: CourseViewModel = viewModel(factory = CourseViewModelFactory(courseDao))
+
+    // Observe course list from the ViewModel
+    val courseList by courseViewModel.courseList.collectAsState(initial = emptyList())
+
+    // Observe selected course from CourseViewModel
+    val selectedCourse by courseViewModel.selectedCourse.collectAsState()
+
+    // Initialize StudentViewModel
+    val studentDao = database.studentDao()
+    val studentViewModel: StudentViewModel = viewModel(factory = StudentViewModel.Factory(studentDao))
+
+    val students by studentViewModel.getStudentsByCourse(selectedCourse?.courseCode ?: "")
+        .collectAsState(initial = emptyList())
+>>>>>>> 458a36df1ffa1c6dee25f19376a61edf63d819a1
 
     Column(
         modifier = Modifier
@@ -44,14 +76,30 @@ fun AttendanceStartScreen(navController: NavHostController) {
 
         // Course Dropdown
         Text(text = "Select Course/Class")
-        DropdownMenuExample(courseList, selectedCourse) { selectedCourse = it }
+        DropdownMenuExample(
+            courseList = courseList,
+            selectedCourse = selectedCourse,
+            onCourseSelected = { course ->
+                courseViewModel.selectCourse(course)  // Update CourseViewModel
+            }
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
         // Start Attendance Button
         Button(
             onClick = {
-                navController.navigate("attendance") // Navigate to AttendanceScreen.kt
+                when {
+                    selectedCourse == null -> {
+                        // Show error: "Please select a course"
+                    }
+                    selectedDate.isEmpty() -> {
+                        // Show error: "Please select a date"
+                    }
+                    else -> {
+                        navController.navigate("attendance/${selectedCourse!!.courseCode}/$selectedDate")
+                    }
+                }
             }
         ) {
             Text(text = "Start Attendance")
@@ -70,12 +118,23 @@ fun AttendanceStartScreen(navController: NavHostController) {
     }
 }
 
+<<<<<<< HEAD
 @Composable
 fun DatePickerDialog(onDismiss: () -> Unit, onDateSelected: (String) -> Unit) {
     val calendar = Calendar.getInstance()
     var selectedDay by remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH)) }
     var selectedMonth by remember { mutableStateOf(calendar.get(Calendar.MONTH)) }
     var selectedYear by remember { mutableStateOf(calendar.get(Calendar.YEAR)) }
+=======
+
+
+@Composable
+fun DatePickerDialog(onDismiss: () -> Unit, onDateSelected: (String) -> Unit) {
+    val calendar = Calendar.getInstance()
+    var selectedDay by remember { mutableIntStateOf(calendar.get(Calendar.DAY_OF_MONTH)) }
+    var selectedMonth by remember { mutableIntStateOf(calendar.get(Calendar.MONTH)) }
+    var selectedYear by remember { mutableIntStateOf(calendar.get(Calendar.YEAR)) }
+>>>>>>> 458a36df1ffa1c6dee25f19376a61edf63d819a1
 
     Dialog(onDismissRequest = onDismiss) { // Use androidx.compose.ui.window.Dialog
         Surface(
@@ -137,7 +196,11 @@ fun DatePickerDialog(onDismiss: () -> Unit, onDateSelected: (String) -> Unit) {
                 ) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     TextButton(onClick = {
+<<<<<<< HEAD
                         val formattedDate = String.format("%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay)
+=======
+                        val formattedDate = String.format(Locale.getDefault(), "%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay)
+>>>>>>> 458a36df1ffa1c6dee25f19376a61edf63d819a1
                         onDateSelected(formattedDate)
                     }) { Text("Select") }
                 }
@@ -147,12 +210,16 @@ fun DatePickerDialog(onDismiss: () -> Unit, onDateSelected: (String) -> Unit) {
 }
 
 @Composable
-fun DropdownMenuExample(courseList: List<String>, selectedCourse: String, onCourseSelected: (String) -> Unit) {
+fun DropdownMenuExample(
+    courseList: List<CourseEntity>,  // List of CourseEntity instead of List<String>
+    selectedCourse: CourseEntity?,   // selectedCourse is now of type CourseEntity
+    onCourseSelected: (CourseEntity) -> Unit  // onCourseSelected receives a CourseEntity
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
         Button(onClick = { expanded = true }) {
-            Text(text = if (selectedCourse.isEmpty()) "Select Course" else selectedCourse)
+            Text(text = selectedCourse?.courseCode ?: "Select Course")  // Show courseCode if selectedCourse is not null
         }
 
         DropdownMenu(
@@ -161,9 +228,9 @@ fun DropdownMenuExample(courseList: List<String>, selectedCourse: String, onCour
         ) {
             courseList.forEach { course ->
                 DropdownMenuItem(
-                    text = { Text(course) },
+                    text = { Text(course.courseCode) },  // Display the courseCode from CourseEntity
                     onClick = {
-                        onCourseSelected(course)
+                        onCourseSelected(course)  // Update the selected course
                         expanded = false
                     }
                 )
@@ -181,5 +248,17 @@ fun getCurrentDate(): String {
 @Composable
 @Preview(showBackground = true)
 fun AttendanceStartScreenPreview() {
-    AttendanceStartScreen(navController = rememberNavController())
+    val navController = rememberNavController()
+
+    // Use a real context-based database in the preview
+    val context = LocalContext.current
+    val database = Room.databaseBuilder(
+        context,
+        AttendanceDatabase::class.java,
+        "attendance_database"
+    ).build()
+
+    // Pass the actual database to the composable
+    AttendanceStartScreen(navController = navController, database = database)
 }
+
